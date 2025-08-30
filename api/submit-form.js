@@ -45,11 +45,14 @@ const handler = async (req, res) => {
     },
   });
 
+  // Generate the HTML for the email
+  const emailHtml = generateEmailHTML(data);
+
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: process.env.EMAIL_TO,
-    subject: `New Project Submission from ${data['first-name']} ${data['last-name']}`,
-    html: `<p>You have a new project submission. Details:</p><pre>${JSON.stringify(data, null, 2)}</pre>`,
+    subject: `New Project Submission from ${data['first-name'] || 'Unknown'} ${data['last-name'] || ''}`,
+    html: emailHtml,
   };
 
   // --- Send Email ---
@@ -60,6 +63,81 @@ const handler = async (req, res) => {
     console.error('Nodemailer Error:', error);
     return res.status(500).json({ message: 'Error sending email.' });
   }
+};
+
+// Helper function to generate a professional HTML email template
+const generateEmailHTML = (data) => {
+  const styles = {
+    body: `font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;`,
+    container: `background-color: #ffffff; border-radius: 8px; padding: 30px; max-width: 600px; margin: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1);`,
+    header: `font-size: 24px; font-weight: bold; color: #333; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; text-align: center;`,
+    sectionTitle: `font-size: 18px; font-weight: bold; color: #555; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;`,
+    fieldLabel: `font-weight: bold; color: #333;`,
+    fieldValue: `color: #666;`,
+    fieldGroup: `margin-bottom: 12px;`,
+    colorSwatch: `display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 1px solid #ddd; vertical-align: middle; margin-right: 10px;`,
+  };
+
+  // Function to create a row for a data point, handling undefined/empty values
+  const createRow = (label, value) => {
+    if (!value) return ''; // Don't render a row if the value is empty
+    return `
+      <div style="${styles.fieldGroup}">
+        <span style="${styles.fieldLabel}">${label}:</span>
+        <span style="${styles.fieldValue}">${value}</span>
+      </div>
+    `;
+  };
+  
+  // Function to create a color row with a visual swatch
+   const createColorRow = (label, colorValue) => {
+    if (!colorValue) return '';
+    return `
+      <div style="${styles.fieldGroup}">
+        <span style="${styles.fieldLabel}">${label}:</span>
+        <span style="background-color: ${colorValue}; ${styles.colorSwatch}"></span>
+        <span style="${styles.fieldValue}">${colorValue}</span>
+      </div>
+    `;
+  };
+
+  return `
+    <div style="${styles.body}">
+      <div style="${styles.container}">
+        <div style="${styles.header}">New Project Submission</div>
+        
+        <div style="${styles.sectionTitle}">Contact Information</div>
+        ${createRow('Name', `${data['first-name']} ${data['last-name']}`)}
+        ${createRow('Email', `<a href="mailto:${data['email']}">${data['email']}</a>`)}
+        ${createRow('Phone', data['phone'])}
+        ${createRow('Affiliation', data['affiliation'] === 'Other' ? data['other-affiliation-specify'] : data['affiliation'])}
+
+        <div style="${styles.sectionTitle}">Team & Order Details</div>
+        ${createRow('Team/Organization Name', data['team-name'])}
+        ${createRow('Year Founded', data['team-founded'])}
+        ${createRow('Sport', data['sport'] === 'Other' ? data['other-sport-specify'] : data['sport'])}
+        ${createRow('Number of Athletes', data['athletes-number'])}
+        ${createRow('Ordering More Than Jerseys?', data['more-than-jerseys'])}
+        ${createRow('Reversible Jerseys?', data['reversible-jerseys'])}
+        ${createRow('Requested Delivery Date', data['delivery-date'])}
+        ${createRow('Shipping Country', data['shipping-country'])}
+
+        <div style="${styles.sectionTitle}">Design & Project Overview</div>
+        ${createColorRow('Primary Color', data['primary-color'])}
+        ${createColorRow('Accent Color 1', data['accent-color'])}
+        ${createColorRow('Accent Color 2', data['accent-color-2'])}
+        ${createRow('Project Overview', `<p style="white-space: pre-wrap; margin: 0; color: #666;">${data['project-overview']}</p>`)}
+        
+        <div style="${styles.sectionTitle}">Additional Information</div>
+        ${createRow('Add Members?', data['add-members'])}
+        ${createRow('Additional Member #1 Name', data['member1-name'])}
+        ${createRow('Additional Member #1 Email', data['member1-email'])}
+        ${createRow('Social Media Feature?', data['social-feature'])}
+        ${createRow('How they heard about us', data['referral'] === 'Other' ? data['other-referral-specify'] : data['referral'])}
+        
+      </div>
+    </div>
+  `;
 };
 
 module.exports = handler;
