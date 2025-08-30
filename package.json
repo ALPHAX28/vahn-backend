@@ -1,9 +1,14 @@
 {
-  "name": "jerseybird-form-backend",
+  "name": "jersey-bird-form-backend",
   "version": "1.0.0",
+  "description": "Backend serverless functions for handling form submissions and image uploads.",
+  "main": "api/submit-form.js",
   "dependencies": {
-    "cors": "^2.8.5",
-    "mongodb": "^6.0.0",
-    "nodemailer": "^6.9.0"
-  }
+    "mongodb": "^6.5.0",
+    "nodemailer": "^6.9.13",
+    "uploadthing": "^6.9.0",
+    "react": "^18.2.0"
+  },
+  "author": "",
+  "license": "ISC"
 }
