@@ -48,9 +48,15 @@ const handler = async (req, res) => {
   // Generate the HTML for the email
   const emailHtml = generateEmailHTML(data);
 
+  // The email address entered by the user in the form
+  const userEmail = data['email'];
+  
+  // An array of recipients: your admin email and the user's email
+  const recipients = [process.env.EMAIL_TO, userEmail];
+
   const mailOptions = {
     from: process.env.EMAIL_USER,
-    to: process.env.EMAIL_TO,
+    to: recipients,
     subject: `New Project Submission from ${data['first-name'] || 'Unknown'} ${data['last-name'] || ''}`,
     html: emailHtml,
   };
