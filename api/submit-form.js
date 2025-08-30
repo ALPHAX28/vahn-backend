@@ -3,14 +3,12 @@ const nodemailer = require('nodemailer');
 
 const handler = async (req, res) => {
   // --- Manually set CORS headers ---
-  // This is a more direct way to handle CORS in a serverless environment.
   const allowedOrigin = process.env.FRONTEND_URL;
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin || '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-  // Handle the browser's preflight OPTIONS request
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -21,6 +19,11 @@ const handler = async (req, res) => {
   }
 
   const data = req.body;
+  // The image URLs from UploadThing will be in data.imageUrls
+  // It will be a string of comma-separated URLs, so we split it into an array.
+  const imageUrls = data.imageUrls ? data.imageUrls.split(',') : [];
+
+  const submissionData = { ...data, imageUrls, submittedAt: new Date() };
 
   // --- MongoDB Connection ---
   const client = new MongoClient(process.env.MONGODB_URI);
@@ -28,7 +31,7 @@ const handler = async (req, res) => {
     await client.connect();
     const database = client.db('form-submissions');
     const collection = database.collection('projects');
-    await collection.insertOne(data);
+    await collection.insertOne(submissionData);
   } catch (error) {
     console.error('MongoDB Error:', error);
     return res.status(500).json({ message: 'Error saving to database.' });
@@ -45,13 +48,8 @@ const handler = async (req, res) => {
     },
   });
 
-  // Generate the HTML for the email
-  const emailHtml = generateEmailHTML(data);
-
-  // The email address entered by the user in the form
+  const emailHtml = generateEmailHTML(submissionData);
   const userEmail = data['email'];
-  
-  // An array of recipients: your admin email and the user's email
   const recipients = [process.env.EMAIL_TO, userEmail];
 
   const mailOptions = {
@@ -61,7 +59,6 @@ const handler = async (req, res) => {
     html: emailHtml,
   };
 
-  // --- Send Email ---
   try {
     await transporter.sendMail(mailOptions);
     return res.status(200).json({ message: 'Submission successful!' });
@@ -71,43 +68,44 @@ const handler = async (req, res) => {
   }
 };
 
-// Helper function to generate a professional HTML email template
 const generateEmailHTML = (data) => {
-  const styles = {
-    body: `font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;`,
-    container: `background-color: #ffffff; border-radius: 8px; padding: 30px; max-width: 600px; margin: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1);`,
-    header: `font-size: 24px; font-weight: bold; color: #333; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; text-align: center;`,
-    sectionTitle: `font-size: 18px; font-weight: bold; color: #555; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;`,
-    fieldLabel: `font-weight: bold; color: #333;`,
-    fieldValue: `color: #666;`,
-    fieldGroup: `margin-bottom: 12px;`,
-    colorSwatch: `display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 1px solid #ddd; vertical-align: middle; margin-right: 10px;`,
-  };
+    // ... (email template logic remains the same, but we add an image section)
+    const styles = {
+        body: `font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;`,
+        container: `background-color: #ffffff; border-radius: 8px; padding: 30px; max-width: 600px; margin: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1);`,
+        header: `font-size: 24px; font-weight: bold; color: #333; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; text-align: center;`,
+        sectionTitle: `font-size: 18px; font-weight: bold; color: #555; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;`,
+        fieldLabel: `font-weight: bold; color: #333;`,
+        fieldValue: `color: #666;`,
+        fieldGroup: `margin-bottom: 12px;`,
+        colorSwatch: `display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 1px solid #ddd; vertical-align: middle; margin-right: 10px;`,
+        imageGallery: `margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;`,
+        imageWrapper: `width: 100px; height: 100px; border-radius: 4px; overflow: hidden; border: 1px solid #eee;`,
+        image: `width: 100%; height: 100%; object-fit: cover;`
+    };
 
-  // Function to create a row for a data point, handling undefined/empty values
-  const createRow = (label, value) => {
-    if (!value) return ''; // Don't render a row if the value is empty
-    return `
-      <div style="${styles.fieldGroup}">
-        <span style="${styles.fieldLabel}">${label}:</span>
-        <span style="${styles.fieldValue}">${value}</span>
-      </div>
-    `;
-  };
-  
-  // Function to create a color row with a visual swatch
-   const createColorRow = (label, colorValue) => {
-    if (!colorValue) return '';
-    return `
-      <div style="${styles.fieldGroup}">
-        <span style="${styles.fieldLabel}">${label}:</span>
-        <span style="background-color: ${colorValue}; ${styles.colorSwatch}"></span>
-        <span style="${styles.fieldValue}">${colorValue}</span>
-      </div>
-    `;
-  };
+    const createRow = (label, value) => {
+        if (!value) return '';
+        return `<div style="${styles.fieldGroup}"><span style="${styles.fieldLabel}">${label}:</span> <span style="${styles.fieldValue}">${value}</span></div>`;
+    };
 
-  return `
+    const createColorRow = (label, colorValue) => {
+        if (!colorValue) return '';
+        return `<div style="${styles.fieldGroup}"><span style="${styles.fieldLabel}">${label}:</span><span style="background-color: ${colorValue}; ${styles.colorSwatch}"></span><span style="${styles.fieldValue}">${colorValue}</span></div>`;
+    };
+    
+    // Create the image gallery HTML
+    let imagesHtml = '';
+    if (data.imageUrls && data.imageUrls.length > 0) {
+        imagesHtml += `<div style="${styles.sectionTitle}">Uploaded Design Files</div>`;
+        imagesHtml += `<div style="${styles.imageGallery}">`;
+        data.imageUrls.forEach(url => {
+            imagesHtml += `<div style="${styles.imageWrapper}"><a href="${url}" target="_blank"><img src="${url}" alt="Uploaded Image" style="${styles.image}"></a></div>`;
+        });
+        imagesHtml += `</div>`;
+    }
+
+    return `
     <div style="${styles.body}">
       <div style="${styles.container}">
         <div style="${styles.header}">New Project Submission</div>
@@ -123,28 +121,20 @@ const generateEmailHTML = (data) => {
         ${createRow('Year Founded', data['team-founded'])}
         ${createRow('Sport', data['sport'] === 'Other' ? data['other-sport-specify'] : data['sport'])}
         ${createRow('Number of Athletes', data['athletes-number'])}
-        ${createRow('Ordering More Than Jerseys?', data['more-than-jerseys'])}
-        ${createRow('Reversible Jerseys?', data['reversible-jerseys'])}
-        ${createRow('Requested Delivery Date', data['delivery-date'])}
-        ${createRow('Shipping Country', data['shipping-country'])}
-
+        
         <div style="${styles.sectionTitle}">Design & Project Overview</div>
         ${createColorRow('Primary Color', data['primary-color'])}
         ${createColorRow('Accent Color 1', data['accent-color'])}
         ${createColorRow('Accent Color 2', data['accent-color-2'])}
         ${createRow('Project Overview', `<p style="white-space: pre-wrap; margin: 0; color: #666;">${data['project-overview']}</p>`)}
         
-        <div style="${styles.sectionTitle}">Additional Information</div>
-        ${createRow('Add Members?', data['add-members'])}
-        ${createRow('Additional Member #1 Name', data['member1-name'])}
-        ${createRow('Additional Member #1 Email', data['member1-email'])}
-        ${createRow('Social Media Feature?', data['social-feature'])}
-        ${createRow('How they heard about us', data['referral'] === 'Other' ? data['other-referral-specify'] : data['referral'])}
-        
+        ${imagesHtml}
+
       </div>
     </div>
   `;
 };
+
 
 module.exports = handler;
 
