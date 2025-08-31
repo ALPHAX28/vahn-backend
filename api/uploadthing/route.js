@@ -1,9 +1,14 @@
-import { createNextPageApiHandler } from "uploadthing/next-legacy";
+let createRouteHandler;
+try {
+  ({ createRouteHandler } = require('uploadthing/next'));
+  console.log('[uploadthing-route] uploadthing/next imported at runtime');
+} catch (e) {
+  console.error('[uploadthing-route] failed to import uploadthing/next', e && e.stack ? e.stack : e);
+  throw e;
+}
 import { ourFileRouter } from "./core";
 
-const uploadHandler = createNextPageApiHandler({
-  router: ourFileRouter,
-});
+const uploadHandler = createRouteHandler({ router: ourFileRouter });
 
 // Wrap the UploadThing handler to add CORS headers and handle preflight requests
 export default async function handler(req, res) {
@@ -23,7 +28,17 @@ export default async function handler(req, res) {
 
   try {
     console.log('[uploadthing-route] incoming request', { method: req.method, url: req.url });
-    return await uploadHandler(req, res);
+    // Delegate to the new createRouteHandler API which exposes POST/GET
+    if (req.method === 'POST') {
+      const result = await uploadHandler.POST(req);
+      return forwardFetchResultToRes(result, res);
+    }
+    if (req.method === 'GET') {
+      const result = await uploadHandler.GET(req);
+      return forwardFetchResultToRes(result, res);
+    }
+    res.setHeader('Allow', 'GET,POST,OPTIONS');
+    return res.status(405).end();
   } catch (err) {
     console.error('[uploadthing-route] handler error', err && err.stack ? err.stack : err);
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -31,4 +46,41 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
     res.status(500).json({ message: 'UploadThing internal error', error: (err && err.message) || String(err) });
   }
+}
+
+// Helper: forward a Fetch/Response-like result to Next.js res
+function forwardFetchResultToRes(result, res) {
+  if (!result) return res.end();
+  // If result looks like an object with status
+  const status = result.status || 200;
+
+  // Copy headers if present
+  try {
+    const hdrs = result.headers;
+    if (hdrs) {
+      // Headers instance
+      if (typeof hdrs.entries === 'function') {
+        for (const [k, v] of hdrs.entries()) res.setHeader(k, v);
+      } else if (typeof hdrs.forEach === 'function') {
+        hdrs.forEach((v, k) => res.setHeader(k, v));
+      } else if (typeof hdrs === 'object') {
+        for (const k of Object.keys(hdrs)) res.setHeader(k, hdrs[k]);
+      }
+    }
+  } catch (e) {
+    // ignore header copy errors
+  }
+
+  // Body handling
+  if (typeof result.json === 'function') {
+    return result.json().then((body) => res.status(status).json(body)).catch(() => res.status(status).end());
+  }
+  if (typeof result.text === 'function') {
+    return result.text().then((body) => res.status(status).send(body)).catch(() => res.status(status).end());
+  }
+  if (result.body) {
+    // assume string or buffer
+    return res.status(status).send(result.body);
+  }
+  return res.status(status).end();
 }

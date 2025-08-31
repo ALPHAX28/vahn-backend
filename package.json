@@ -10,5 +10,8 @@
     "react": "^18.2.0"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "scripts": {
+    "vercel-build": "node -e \"require.resolve('uploadthing/next'); console.log('uploadthing/next resolved')\""
+  }
 }
