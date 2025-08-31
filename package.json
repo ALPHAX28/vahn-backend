@@ -6,12 +6,8 @@
   "dependencies": {
     "mongodb": "^6.5.0",
     "nodemailer": "^6.9.13",
-  "uploadthing": "6.13.3",
     "react": "^18.2.0"
   },
   "author": "",
-  "license": "ISC",
-  "scripts": {
-    "vercel-build": "node -e \"require.resolve('uploadthing/next'); console.log('uploadthing/next resolved')\""
-  }
+  "license": "ISC"
 }
