@@ -21,5 +21,14 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  return uploadHandler(req, res);
+  try {
+    console.log('[uploadthing-route] incoming request', { method: req.method, url: req.url });
+    return await uploadHandler(req, res);
+  } catch (err) {
+    console.error('[uploadthing-route] handler error', err && err.stack ? err.stack : err);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.status(500).json({ message: 'UploadThing internal error', error: (err && err.message) || String(err) });
+  }
 }
