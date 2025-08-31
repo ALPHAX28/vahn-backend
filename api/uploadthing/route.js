@@ -1,11 +1,33 @@
 let createRouteHandler;
-try {
-  ({ createRouteHandler } = require('uploadthing/next'));
-  console.log('[uploadthing-route] uploadthing/next imported at runtime');
-} catch (e) {
-  console.error('[uploadthing-route] failed to import uploadthing/next', e && e.stack ? e.stack : e);
-  throw e;
-}
+// Try multiple require paths to be resilient to package layout differences in the deployment bundle
+(() => {
+  const tryPaths = [
+    'uploadthing/next',
+    'uploadthing/next/index.cjs',
+    'uploadthing',
+    'uploadthing/index.cjs',
+    'uploadthing/next-legacy',
+  ];
+  for (const p of tryPaths) {
+    try {
+      const mod = require(p);
+      // module may export helper directly or as default
+      createRouteHandler = mod.createRouteHandler || (mod.default && mod.default.createRouteHandler) || undefined;
+      if (createRouteHandler) {
+        console.log('[uploadthing-route] imported createRouteHandler from', p);
+        break;
+      }
+      console.warn('[uploadthing-route] module loaded from', p, 'but createRouteHandler not found');
+    } catch (err) {
+      console.warn('[uploadthing-route] failed to require', p, '-', err && err.code ? err.code : (err && err.message) || err);
+    }
+  }
+  if (!createRouteHandler) {
+    const err = new Error('createRouteHandler not found on uploadthing package');
+    console.error('[uploadthing-route] import failure', err.stack || err.message || err);
+    throw err;
+  }
+})();
 import { ourFileRouter } from "./core";
 
 const uploadHandler = createRouteHandler({ router: ourFileRouter });

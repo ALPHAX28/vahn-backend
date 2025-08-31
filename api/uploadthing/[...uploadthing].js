@@ -1,11 +1,31 @@
 let createRouteHandler;
-try {
-  ({ createRouteHandler } = require('uploadthing/next'));
-  console.log('[uploadthing-catchall] uploadthing/next imported at runtime');
-} catch (e) {
-  console.error('[uploadthing-catchall] failed to import uploadthing/next', e && e.stack ? e.stack : e);
-  throw e;
-}
+(() => {
+  const tryPaths = [
+    'uploadthing/next',
+    'uploadthing/next/index.cjs',
+    'uploadthing',
+    'uploadthing/index.cjs',
+    'uploadthing/next-legacy',
+  ];
+  for (const p of tryPaths) {
+    try {
+      const mod = require(p);
+      createRouteHandler = mod.createRouteHandler || (mod.default && mod.default.createRouteHandler) || undefined;
+      if (createRouteHandler) {
+        console.log('[uploadthing-catchall] imported createRouteHandler from', p);
+        break;
+      }
+      console.warn('[uploadthing-catchall] module loaded from', p, 'but createRouteHandler not found');
+    } catch (err) {
+      console.warn('[uploadthing-catchall] failed to require', p, '-', err && err.code ? err.code : (err && err.message) || err);
+    }
+  }
+  if (!createRouteHandler) {
+    const err = new Error('createRouteHandler not found on uploadthing package');
+    console.error('[uploadthing-catchall] import failure', err.stack || err.message || err);
+    throw err;
+  }
+})();
 import { ourFileRouter } from "./core";
 
 const uploadHandler = createRouteHandler({ router: ourFileRouter });
