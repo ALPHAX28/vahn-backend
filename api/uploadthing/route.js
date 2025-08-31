@@ -7,11 +7,15 @@ const uploadHandler = createNextPageApiHandler({
 
 // Wrap the UploadThing handler to add CORS headers and handle preflight requests
 export default async function handler(req, res) {
-  const allowedOrigin = process.env.FRONTEND_URL || '*';
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // Permissive CORS: allow all origins and common methods/headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  const reqHeaders = req.headers['access-control-request-headers'];
+  if (reqHeaders) {
+    res.setHeader('Access-Control-Allow-Headers', reqHeaders);
+  } else {
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  }
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
