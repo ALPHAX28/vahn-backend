@@ -52,22 +52,27 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const body = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}');
-    const { images } = body; // expect array of base64 strings (data URLs)
-    if (!images || !Array.isArray(images) || !images.length) return res.status(400).json({ message: 'No images provided' });
+  const body = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}');
+  const { images } = body; // expect array of base64 strings (data URLs) or raw base64 strings
+  if (!images || !Array.isArray(images) || !images.length) return res.status(400).json({ message: 'No images provided' });
+  if (images.length > 10) return res.status(400).json({ message: 'Maximum 10 images allowed' });
     const key = process.env.IMGBB_API_KEY;
     if (!key) return res.status(500).json({ message: 'IMGBB_API_KEY not configured' });
     const uploads = images.map((b64) => {
-      const cleaned = (b64 || '').replace(/^data:image\/[a-zA-Z]+;base64,/, '');
+      const raw = String(b64 || '');
+      // Accept data URLs like: data:image/png;base64,.... or data:image/svg+xml;base64,....
+      const cleaned = raw.replace(/^data:[^;]+;base64,/, '');
+      if (!cleaned) return Promise.resolve({ error: 'Invalid image data' });
       return postToImgbb(key, cleaned).catch((e) => ({ error: (e && e.message) || String(e) }));
     });
     const results = await Promise.all(uploads);
-    const urls = results.map((r) => (typeof r === 'string' ? r : null)).filter(Boolean);
-    const errors = results.filter((r) => r && typeof r === 'object' && r.error).map((r) => r.error);
-    if (!urls.length && errors.length) throw new Error('All uploads failed: ' + errors.join('; '));
-    // Ensure CORS header present on response
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    return res.status(200).json({ urls });
+  const urls = results.map((r) => (typeof r === 'string' ? r : null));
+  const errors = results.map((r, i) => ({ index: i, error: r && r.error ? r.error : null })).filter(x => x.error);
+  const successful = urls.filter(Boolean);
+  if (!successful.length && errors.length) return res.status(500).json({ message: 'All uploads failed', errors });
+  // Ensure CORS header present on response
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  return res.status(200).json({ urls: successful, errors: errors.length ? errors : undefined });
   } catch (err) {
     console.error('upload-imgbb error', err && err.stack ? err.stack : err);
     res.setHeader('Access-Control-Allow-Origin', '*');

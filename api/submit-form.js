@@ -18,12 +18,36 @@ const handler = async (req, res) => {
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const data = req.body;
-  // The image URLs from UploadThing will be in data.imageUrls
-  // It will be a string of comma-separated URLs, so we split it into an array.
-  const imageUrls = data.imageUrls ? data.imageUrls.split(',') : [];
+  const data = req.body || {};
+  // Normalize imageUrls: accept either an array or a comma-separated string
+  let imageUrls = [];
+  if (data.imageUrls) {
+    if (Array.isArray(data.imageUrls)) {
+      imageUrls = data.imageUrls.filter(Boolean);
+    } else if (typeof data.imageUrls === 'string') {
+      imageUrls = data.imageUrls.split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
 
-  const submissionData = { ...data, imageUrls, submittedAt: new Date() };
+  // Normalize onfield/offfield package selections which may come as arrays or comma-joined strings
+  let onfield = [];
+  let offfield = [];
+  if (data.onfield) {
+    if (Array.isArray(data.onfield)) onfield = data.onfield.filter(Boolean);
+    else if (typeof data.onfield === 'string') onfield = data.onfield.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  if (data.offfield) {
+    if (Array.isArray(data.offfield)) offfield = data.offfield.filter(Boolean);
+    else if (typeof data.offfield === 'string') offfield = data.offfield.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  const submissionData = {
+    ...data,
+    imageUrls,
+    onfield,
+    offfield,
+    submittedAt: new Date()
+  };
 
   // --- MongoDB Connection ---
   const client = new MongoClient(process.env.MONGODB_URI);
@@ -94,16 +118,22 @@ const generateEmailHTML = (data) => {
         return `<div style="${styles.fieldGroup}"><span style="${styles.fieldLabel}">${label}:</span><span style="background-color: ${colorValue}; ${styles.colorSwatch}"></span><span style="${styles.fieldValue}">${colorValue}</span></div>`;
     };
     
-    // Create the image gallery HTML
+  // Create the image gallery HTML
     let imagesHtml = '';
     if (data.imageUrls && data.imageUrls.length > 0) {
         imagesHtml += `<div style="${styles.sectionTitle}">Uploaded Design Files</div>`;
         imagesHtml += `<div style="${styles.imageGallery}">`;
-        data.imageUrls.forEach(url => {
+    data.imageUrls.forEach(url => {
             imagesHtml += `<div style="${styles.imageWrapper}"><a href="${url}" target="_blank"><img src="${url}" alt="Uploaded Image" style="${styles.image}"></a></div>`;
         });
         imagesHtml += `</div>`;
     }
+
+  const createListRow = (label, arr) => {
+    if (!arr || !arr.length) return '';
+    const items = arr.map(i => `<li style="margin-bottom:6px;color:#666;">${i}</li>`).join('');
+    return `<div style="${styles.fieldGroup}"><div style="${styles.fieldLabel}; margin-bottom:8px;">${label}:</div><ul style="margin:0;padding-left:18px;">${items}</ul></div>`;
+  };
 
     return `
     <div style="${styles.body}">
@@ -126,9 +156,11 @@ const generateEmailHTML = (data) => {
         ${createColorRow('Primary Color', data['primary-color'])}
         ${createColorRow('Accent Color 1', data['accent-color'])}
         ${createColorRow('Accent Color 2', data['accent-color-2'])}
-        ${createRow('Project Overview', `<p style="white-space: pre-wrap; margin: 0; color: #666;">${data['project-overview']}</p>`)}
+  ${createRow('Project Overview', `<p style="white-space: pre-wrap; margin: 0; color: #666;">${data['project-overview']}</p>`)}
+  ${createListRow('On-field package', data.onfield)}
+  ${createListRow('Off-field package', data.offfield)}
         
-        ${imagesHtml}
+  ${imagesHtml}
 
       </div>
     </div>
