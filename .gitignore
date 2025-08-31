@@ -5,6 +5,8 @@ Ignore environment variables file
 This file contains sensitive information and should never be committed.
 .env
 
+index.html
+
 Ignore Vercel deployment output
 .vercel/
 
