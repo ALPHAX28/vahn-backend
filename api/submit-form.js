@@ -178,13 +178,41 @@ const generateEmailHTML = (data) => {
 
   ${(() => {
     if (!data.designChoices || typeof data.designChoices !== 'object') return '';
+    // Map common design labels to the public image URLs we used on the front-end
+    const thumbMap = {
+      // Necklines
+      'Crew Neck': 'https://i.ibb.co/vxrPBYX1/1-VAHN-Crew-Neck.png',
+      'V-Neck': 'https://i.ibb.co/Hp2F12T2/2-VAHN-V-Neck.png',
+      'Polo / Collared': 'https://i.ibb.co/bjTK1MnW/3-VAHN-Polo.png',
+      'V-Neck Polo': 'https://i.ibb.co/b557rxkp/4-VAHN-V-Neck-Polo.png',
+      'Mandarin': 'https://i.ibb.co/SDPgKvxx/5-VAHN-Mandarin.png',
+      'Band Neck': 'https://i.ibb.co/pjHXwRRb/6-VAHN-Band-Neck.png',
+      'Modified Band Neck': 'https://i.ibb.co/gZ89bP6Z/7-VAHN-Modified-Band-Neck.png',
+      // Sleeves
+      'Set-In (Standard)': 'https://i.ibb.co/Cpz0ChYw/1-VAHN-Sleeve-Style-Set-In.png',
+      'Raglan': 'https://i.ibb.co/vx8nsRbN/2-VAHN-Sleeve-Style-Raglan.png',
+      // Crests
+      'Sublimated Crest': 'https://i.ibb.co/HfwJ8prt/1-VAHN-teamcrest-Sublimated-Crest.png',
+      'Woven Patch': 'https://i.ibb.co/1tgDqhgQ/2-VAHN-teamcrest-Woven-Patch-Crest.png',
+      '3D Silicone': 'https://i.ibb.co/0VhsBczf/3-VAHN-teamcrest-3-D-Silicone-Crest.png',
+      // Fabric
+      'Standard Fabric': 'https://i.ibb.co/svtBNcsd/1-VAHN-Standard-fabric.png',
+      'Pro Fabric': 'https://i.ibb.co/Rp32NHQH/2-VAHN-Pro-fabric.png',
+      'Pro V2 Fabric': 'https://i.ibb.co/tMBKmLB0/3-VAHN-Pro-V2-fabric.png',
+      // Collar/cuff
+      'Rib Knit': 'https://i.ibb.co/7xHyfVdK/2-Rib-knit-fabric.png',
+      'Standard': 'https://i.ibb.co/3Y7VyC83/1-Standard-fabric.png'
+    };
+
     let html = `<div style="${styles.sectionTitle}">Design Choices</div>`;
     Object.keys(data.designChoices).forEach(key => {
       const val = data.designChoices[key];
       if (!val) return;
       // Pretty-label the key: convert kebab or snake to Title Case
       const pretty = key.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      html += `<div style="${styles.fieldGroup}"><span style="${styles.fieldLabel}">${pretty}:</span> <span style="${styles.fieldValue}">${val}</span></div>`;
+      const thumb = thumbMap[val];
+      const thumbHtml = thumb ? `<img src="${thumb}" alt="${val}" style="width:48px;height:48px;object-fit:contain;border:1px solid #eee;border-radius:4px;margin-right:8px;vertical-align:middle;"/>` : '';
+      html += `<div style="${styles.fieldGroup}"><span style="${styles.fieldLabel}">${pretty}:</span> <span style="${styles.fieldValue}">${thumbHtml}${val}</span></div>`;
     });
     return html;
   })()}
