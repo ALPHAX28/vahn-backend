@@ -41,11 +41,27 @@ const handler = async (req, res) => {
     else if (typeof data.offfield === 'string') offfield = data.offfield.split(',').map(s => s.trim()).filter(Boolean);
   }
 
+  // Normalize designChoices: may be sent as an object or a JSON string
+  let designChoices = null;
+  if (data.designChoices) {
+    if (typeof data.designChoices === 'string') {
+      try {
+        designChoices = JSON.parse(data.designChoices);
+      } catch (e) {
+        // if parse fails, leave as null
+        designChoices = null;
+      }
+    } else if (typeof data.designChoices === 'object') {
+      designChoices = data.designChoices;
+    }
+  }
+
   const submissionData = {
     ...data,
     imageUrls,
     onfield,
     offfield,
+  designChoices,
     submittedAt: new Date()
   };
 
@@ -159,7 +175,20 @@ const generateEmailHTML = (data) => {
   ${createRow('Project Overview', `<p style="white-space: pre-wrap; margin: 0; color: #666;">${data['project-overview']}</p>`)}
   ${createListRow('On-field package', data.onfield)}
   ${createListRow('Off-field package', data.offfield)}
-        
+
+  ${(() => {
+    if (!data.designChoices || typeof data.designChoices !== 'object') return '';
+    let html = `<div style="${styles.sectionTitle}">Design Choices</div>`;
+    Object.keys(data.designChoices).forEach(key => {
+      const val = data.designChoices[key];
+      if (!val) return;
+      // Pretty-label the key: convert kebab or snake to Title Case
+      const pretty = key.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      html += `<div style="${styles.fieldGroup}"><span style="${styles.fieldLabel}">${pretty}:</span> <span style="${styles.fieldValue}">${val}</span></div>`;
+    });
+    return html;
+  })()}
+
   ${imagesHtml}
 
       </div>
